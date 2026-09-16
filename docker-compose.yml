@@ -1,0 +1,127 @@
+services:
+
+  # ============================================================
+  # PostgreSQL 17
+  # ============================================================
+  postgres:
+    image: postgres:17-alpine
+    container_name: spring-postgres
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: cashbit_db
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      TZ: America/Argentina/Buenos_Aires
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U springuser -d springdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+    networks:
+      - spring-network
+
+
+  # ============================================================
+  # Apache Kafka 4.3.1 - KRaft
+  # ============================================================
+  kafka:
+    image: apache/kafka:4.3.1
+    container_name: spring-kafka
+    restart: unless-stopped
+
+    ports:
+      - "9092:9092"
+
+    environment:
+
+      # --------------------------------------------------------
+      # KRaft
+      # --------------------------------------------------------
+      KAFKA_NODE_ID: 1
+
+      KAFKA_PROCESS_ROLES: broker,controller
+
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093
+
+      # --------------------------------------------------------
+      # Listeners
+      # --------------------------------------------------------
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: >
+        CONTROLLER:PLAINTEXT,
+        INTERNAL:PLAINTEXT,
+        EXTERNAL:PLAINTEXT
+
+      KAFKA_LISTENERS: >
+        CONTROLLER://:29093,
+        INTERNAL://:19092,
+        EXTERNAL://:9092
+
+      KAFKA_ADVERTISED_LISTENERS: >
+        INTERNAL://kafka:19092,
+        EXTERNAL://localhost:9092
+
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+
+      # --------------------------------------------------------
+      # Single broker configuration
+      # --------------------------------------------------------
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 1
+
+      KAFKA_MIN_INSYNC_REPLICAS: 1
+
+      # --------------------------------------------------------
+      # Development
+      # --------------------------------------------------------
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+
+      # --------------------------------------------------------
+      # Logs
+      # --------------------------------------------------------
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+
+    networks:
+      - spring-network
+
+
+# ==============================================================
+# Volumes
+# ==============================================================
+
+volumes:
+
+  postgres_data:
+    name: spring_postgres_data
+
+  kafka_data:
+    name: spring_kafka_data
+
+
+# ==============================================================
+# Network
+# ==============================================================
+
+networks:
+
+  spring-network:
+    name: spring-network
+    driver: bridge
